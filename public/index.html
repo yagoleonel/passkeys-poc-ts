@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Form</title>
+    <style>
+        .container {
+            width: 300px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .container h2 {
+            text-align: center;
+        }
+
+        .container input[type="text"],
+        .container input[type="password"] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        .container button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Passkeys POC</h2>
+        <input type="text" id="username" placeholder="Username">
+        <button onclick="createUser()">Create user</button>
+        <div id="userCreated"></div>
+        <button onclick="registerPasskeys('platform')">Register new passkeys</button>
+        <button onclick="registerPasskeys('cross-platform')">Register new passkeys (another device)</button>
+        <div id="passkeysCreated"></div>        
+        <button onclick="authenticateWithPassKeys()">Authenticate</button>
+        <div id="authenticationCreated"></div>
+    </div>
+    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+    <script>
+        // 1 - Create the user
+        async function createUser() {
+            const response = await fetch('http://localhost:3000/api/user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: document.getElementById('username').value })
+            });
+
+            const userCreatedDiv = document.getElementById('userCreated');
+
+            if (response.status !== 200) {
+                userCreatedDiv.innerHTML = 'Failed to create user';
+                return 
+            }
+
+            const userData = await response.json();
+            userCreatedDiv.innerHTML = `User created | Data: ${JSON.stringify(userData)}`;
+        }
+
+
+        // 2 - Register the passkeys
+        async function registerPasskeys (attachment) {
+            // Start registration
+
+            // Get options
+            const response = await fetch(`http://localhost:3000/api/registration/start?attachment=${attachment}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: document.getElementById('username').value })
+            });
+
+            if (response.status !== 200) {
+                document.getElementById('passkeysCreated').innerHTML = 'Failed to start registration';
+                return;
+            } 
+
+            const { registrationId, options } = await response.json();
+            console.log('registration', registrationId, options);
+            document.getElementById('passkeysCreated').innerHTML = `Registration started (${registrationId})`;
+
+            // Solve challenge
+            let authenticationResponse;
+            try {
+                // https://github.com/MasterKale/SimpleWebAuthn/blob/master/packages/browser/src/methods/startRegistration.ts
+                const { startRegistration } = SimpleWebAuthnBrowser;
+                // Pass the options to the authenticator and wait for a response
+                authenticationResponse = await startRegistration(options);
+            } catch (error) {
+                console.error(error);
+                throw error;
+            }
+
+            console.log(navigator.userAgent || navigator.vendor || window.opera)
+
+            // Finish registration
+            const finishResponse = await fetch(`http://localhost:3000/api/registration/finish?registrationId=${registrationId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(authenticationResponse)
+            });
+
+            if (finishResponse.status !== 200) {
+                document.getElementById('passkeysCreated').innerHTML = 'Failed to finish registration';
+                return;
+            }
+
+            const finishData = await finishResponse.json();
+            document.getElementById('passkeysCreated').innerHTML = `Registration finished`;
+        }
+
+        // 3 - Authenticate
+        async function authenticateWithPassKeys() {
+
+            // Get authentication options
+            const response = await fetch('http://localhost:3000/api/authentication/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: document.getElementById('username').value })
+            });
+
+            if (response.status !== 200) {
+                document.getElementById('authenticationCreated').innerHTML = 'Failed to start authentication';
+                return;
+            }
+
+            const { authenticationId, options } = await response.json();
+            console.log('authentication', authenticationId, options);
+
+            document.getElementById('authenticationCreated').innerHTML = `Authentication started (${authenticationId})`;
+
+            // Solve challenge
+            let authenticationResponse;
+            try {
+                // https://github.com/MasterKale/SimpleWebAuthn/blob/master/packages/browser/src/methods/startAuthentication.ts
+                const { startAuthentication } = SimpleWebAuthnBrowser;
+                // Pass the options to the authenticator and wait for a response
+                authenticationResponse = await startAuthentication(options);
+            } catch (error) {
+                // Some basic error handling
+                console.error(error);
+                throw error;
+            }
+                    
+            // Finish authentication
+            const finishResponse = await fetch(`http://localhost:3000/api/authentication/finish?authenticationId=${authenticationId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(authenticationResponse)
+            });
+
+            if (finishResponse.status !== 200) {
+                document.getElementById('authenticationCreated').innerHTML = 'Failed to finish authentication';
+                return;
+            }
+
+            document.getElementById('authenticationCreated').innerHTML = `Authentication finished`;
+        }
+
+    </script>
+</body>
+</html>
