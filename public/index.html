@@ -100,7 +100,7 @@
                 // https://github.com/MasterKale/SimpleWebAuthn/blob/master/packages/browser/src/methods/startRegistration.ts
                 const { startRegistration } = SimpleWebAuthnBrowser;
                 // Pass the options to the authenticator and wait for a response
-                authenticationResponse = await startRegistration(options);
+                authenticationResponse = await startRegistration({ optionsJSON: options });
             } catch (error) {
                 console.error(error);
                 throw error;
@@ -154,7 +154,7 @@
                 // https://github.com/MasterKale/SimpleWebAuthn/blob/master/packages/browser/src/methods/startAuthentication.ts
                 const { startAuthentication } = SimpleWebAuthnBrowser;
                 // Pass the options to the authenticator and wait for a response
-                authenticationResponse = await startAuthentication(options);
+                authenticationResponse = await startAuthentication({ optionsJSON: options });
             } catch (error) {
                 // Some basic error handling
                 console.error(error);

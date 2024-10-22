@@ -42,8 +42,9 @@ export class RegistrationController {
             })),
             timeout: 60000,
             authenticatorSelection: {
+              requireResidentKey: true,
               // Defaults
-              residentKey: 'preferred',
+              residentKey: 'required',
               userVerification: 'required', // Will always require MFA (PIN, fingerprint, etc.)
               // Optional
               authenticatorAttachment: req.query.attachment as AuthenticatorAttachment || 'platform', //cross-platform (suggest to use mobile phone or usb stick even from a PC browser) | platform (suggest to use the platform authenticator)
